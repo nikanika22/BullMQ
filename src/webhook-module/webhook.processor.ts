@@ -2,42 +2,72 @@ import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import axios from 'axios';
+import { NotificationService } from '../notification/notification.service';
+
+type JobData = {
+  url: string;
+  params: {
+    caller: string;
+    callee: string;
+    meta: {
+      callId: string;
+      call: { starttime: string, connector_server: string };
+    };
+  };
+};
 
 @Processor('webhook_queue')
 export class WebhookProcessor extends WorkerHost {
   private readonly logger = new Logger(WebhookProcessor.name);
-
+  constructor(private readonly notificationService: NotificationService) {
+    super(); // bắt buộc gọi khi class extends (kế thừa) WorkerHost
+  }
+  
   /**
    * Phương thức cốt lõi — BullMQ tự động gọi hàm này khi có job mới trong queue.
    * Nếu hàm này throw Error → BullMQ đánh dấu job thất bại và kích hoạt retry (backoff).
    * Nếu hàm này return bình thường → job hoàn thành thành công.
    */
-  async process(job: Job<{ url: string; params: Record<string, unknown> }>): Promise<unknown> {
+  async process(job: Job<JobData>): Promise<unknown> {
     const { url, params } = job.data; // Lấy dữ liệu do Service đẩy vào
-
     this.logger.log(
       `[Job ${job.id}] Attempt ${job.attemptsMade + 1} / ${job.opts.attempts} | POST → ${url}`,
     );
 
     // axios.post tự throw AxiosError khi gặp lỗi HTTP 4xx/5xx → BullMQ bắt và retry
-    const data = await axios.post<unknown>(url, params);
+    const { data } = await axios.post<unknown>(url, params);
 
-    this.logger.log(`✅ [Job ${job.id}] Gửi thành công → ${JSON.stringify(data)}`);
+    this.logger.log(`[Job ${job.id}] Gửi thành công → ${JSON.stringify(data)}`);
     return data;
   }
+
   @OnWorkerEvent('completed')
   onCompleted(job: Job) {
     this.logger.log(`[Job ${job.id}] Hoàn thành!`);
   }
 
   @OnWorkerEvent('failed')
-  onFailed(job: Job, error: Error) {
+  async onFailed(job: Job, error: Error) {
     const isLastAttempt = job.attemptsMade >= (job.opts.attempts ?? 1);
 
     if (isLastAttempt) {
       this.logger.error(
         `[Job ${job.id}] ĐÃ THẤT BẠI HOÀN TOÀN sau ${job.attemptsMade} lần thử | Lỗi: ${error.message}`,
       );
+
+      // Extract job data với type rõ ràng — tránh unsafe assignment
+      const { url, params } = job.data as JobData;
+
+      // Gọi NotificationService — tự load channel từ DB, gửi đến từng provider
+      await this.notificationService.sendAlert({
+        jobId:            job.id ?? '',
+        url:              url,
+        calldate:         params.meta.call.starttime,
+        caller:           params.caller,
+        callee:           params.callee,
+        callId:           params.meta.callId,
+        connector_server: params.meta.call.connector_server,
+      });
     } else {
       this.logger.warn(
         `[Job ${job.id}] Thất bại lần ${job.attemptsMade} — sẽ thử lại sau... | Lỗi: ${error.message}`,

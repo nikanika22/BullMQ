@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
-import { Queue } from 'bullmq';
+import { Queue} from 'bullmq';
 import { createHash } from 'crypto';
 @Injectable()
 export class WebhookModuleService {
@@ -23,15 +23,15 @@ export class WebhookModuleService {
       { url, params },
       {
         jobId: jobId,
-        attempts: 3,
+        attempts: Number(process.env.WEBHOOK_MAX_RETRY),
         backoff: {
           type: 'exponential', 
           delay: 2000,
         },
-        removeOnComplete: true,
+        removeOnComplete: false,
       },
     );
-
+  
     this.logger.log(`Job [${job.id}] đã được đẩy vào queue | url: ${url}`);
     return { success: true };
   }
