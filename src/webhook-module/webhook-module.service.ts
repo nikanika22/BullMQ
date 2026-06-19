@@ -13,11 +13,9 @@ export class WebhookModuleService {
   async dispatchEvent(url: string, params: Record<string, unknown>) {
     const eventId=params.eventId as string || ' ';
     const eventType=params.eventType as string || ' ';
-    const jobId=createHash('sha256').update(eventId+eventType).digest('hex');
-    console.log('eventId: ', eventId);
-    console.log('eventType: ', eventType);
-    console.log('EventID+EventType: ',eventId+eventType);
-    console.log('jobId: ', jobId);
+    const uniqueid = (params as { meta?: { call?: { uniqueid?: string } } })?.meta?.call?.uniqueid || ' ';
+    console.log("uniqueid: "+uniqueid);
+    const jobId=createHash('sha256').update(eventId+eventType+uniqueid).digest('hex');
     const job = await this.webhookQueue.add(
       'sendWebhook',
       { url, params },
@@ -25,14 +23,21 @@ export class WebhookModuleService {
         jobId: jobId,
         attempts: Number(process.env.WEBHOOK_MAX_RETRY),
         backoff: {
-          type: 'exponential', 
-          delay: 2000,
+          type: process.env.BACKUP_TYPE as string, 
+          delay: Number(process.env.TIME_DALAY),
         },
-        removeOnComplete: false,
+        removeOnComplete: {
+          //xoa job khi job hoan thanh sau 24h
+          age: Number(process.env.TTL),
+        },
+        removeOnFail:{
+          //xoa job khi job that bai sau 24h
+          age: Number(process.env.TTL),
+        }
       },
     );
-  
-    this.logger.log(`Job [${job.id}] đã được đẩy vào queue | url: ${url}`);
-    return { success: true };
-  }
+  this.logger.log(`Job [${job.id}] đã được đẩy vào queue | url: ${url}`);
+  return { success: true };
 }
+}
+

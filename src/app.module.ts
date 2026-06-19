@@ -7,11 +7,14 @@ import { ConfigModule } from '@nestjs/config';
 import { NotificationModule } from './notification/notification.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { NotificationChannel } from './notification/entities/notification-channel.entity';
+import { BullBoardModule } from '@bull-board/nestjs';
+import { ExpressAdapter } from '@bull-board/express';
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 
 @Module({
   imports: [
     // app.module.ts — thêm vào imports
-    
+     
         ConfigModule.forRoot({
           isGlobal: true,
         }),
@@ -34,6 +37,17 @@ import { NotificationChannel } from './notification/entities/notification-channe
     }),
     WebhookModuleModule,
     NotificationModule,
+    BullBoardModule.forRoot({
+      route: '/admin/queues',
+      adapter: ExpressAdapter,
+    }),
+    // Đăng ký queue vào Board
+    BullBoardModule.forFeature(
+      {
+        name: 'webhook_queue',
+        adapter: BullMQAdapter, // Import từ @bull-board/api/bullMQAdapter
+      },
+    ),
   ],
   controllers: [AppController],
   providers: [AppService],

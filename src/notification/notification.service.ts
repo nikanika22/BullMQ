@@ -42,7 +42,6 @@ export class NotificationService {
       if (channel.provider === ProviderType.DISCORD) {
         await this.sendDiscord(channel.config['webhook_url'], data);
       }
-      // Sau này thêm Telegram: else if (channel.provider === ProviderType.TELEGRAM)
       this.logger.log(`Alert gửi OK → ${channel.provider} (${channel.name})`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -78,8 +77,9 @@ export class NotificationService {
             { name: 'URL', value: String(data.url), inline: false },
           ],
           footer: { text: String(data.calldate) },
-        },
+        }
       ],
+      timeout: Number(process.env.WEBHOOK_TIMEOUT),
     });
   }
 }
