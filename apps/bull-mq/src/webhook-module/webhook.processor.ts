@@ -1,26 +1,12 @@
-import { Processor, WorkerHost, OnWorkerEvent } from '@nestjs/bullmq';
+import {OnWorkerEvent } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
-import axios from 'axios';
 import { NotificationService } from '../notification/notification.service';
+import type { JobData } from '../shared/Job-data';
 
-type JobData = {
-  url: string;
-  params: {
-    caller: string;
-    callee: string;
-    meta: {
-      callId: string;
-      call: { starttime: string, connector_server: string };
-    };
-  };
-};
-
-@Processor('webhook_queue')
-export class WebhookProcessor extends WorkerHost {
+export class WebhookProcessor {
   private readonly logger = new Logger(WebhookProcessor.name);
   constructor(private readonly notificationService: NotificationService) {
-    super(); // bắt buộc gọi khi class extends (kế thừa) WorkerHost
   }
   
   /**
@@ -28,24 +14,6 @@ export class WebhookProcessor extends WorkerHost {
    * Nếu hàm này throw Error → BullMQ đánh dấu job thất bại và kích hoạt retry (backoff).
    * Nếu hàm này return bình thường → job hoàn thành thành công.
    */
-  async process(job: Job<JobData>): Promise<unknown> {
-    const { url, params } = job.data; // Lấy dữ liệu do Service đẩy vào
-    this.logger.log(
-      `[Job ${job.id}] Attempt ${job.attemptsMade + 1} / ${job.opts.attempts} | POST → ${url}`,
-    );
-
-    // axios.post tự throw AxiosError khi gặp lỗi HTTP 4xx/5xx → BullMQ bắt và retry
-    const { data } = await axios.post<unknown>(url, params);
-
-    this.logger.log(`[Job ${job.id}] Gửi thành công → ${JSON.stringify(data)}`);
-    return data;
-  }
-
-  @OnWorkerEvent('completed')
-  onCompleted(job: Job) {
-    this.logger.log(`[Job ${job.id}] Hoàn thành!`);
-  }
-
   @OnWorkerEvent('failed')
   async onFailed(job: Job, error: Error) {
     const isLastAttempt = job.attemptsMade >= (job.opts.attempts ?? 1);

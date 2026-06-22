@@ -1,8 +1,32 @@
 {
   "$schema": "https://json.schemastore.org/nest-cli",
   "collection": "@nestjs/schematics",
-  "sourceRoot": "src",
+  "sourceRoot": "apps/bull-mq/src",
   "compilerOptions": {
-    "deleteOutDir": true
+    "deleteOutDir": true,
+    "webpack": true,
+    "tsConfigPath": "apps/bull-mq/tsconfig.app.json"
+  },
+  "monorepo": true,
+  "root": "apps/bull-mq",
+  "projects": {
+    "bull-mq": {
+      "type": "application",
+      "root": "apps/bull-mq",
+      "entryFile": "main",
+      "sourceRoot": "apps/bull-mq/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/bull-mq/tsconfig.app.json"
+      }
+    },
+    "worker": {
+      "type": "application",
+      "root": "apps/worker",
+      "entryFile": "main",
+      "sourceRoot": "apps/worker/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/worker/tsconfig.app.json"
+      }
+    }
   }
 }

@@ -4,7 +4,7 @@ import { WebhookModuleService } from './webhook-module.service';
 import { WebhookModuleController } from './webhook-module.controller';
 import { WebhookProcessor } from './webhook.processor';
 import { WebhookQueueEvents } from './webhook.events';
-import { NotificationModule } from 'src/notification/notification.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
