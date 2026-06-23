@@ -1,3 +1,4 @@
+// thiết kế để làm data cho alert
 export type JobData = {
   url: string;
   params: {

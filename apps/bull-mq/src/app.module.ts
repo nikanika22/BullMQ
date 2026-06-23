@@ -10,6 +10,7 @@ import { NotificationChannel } from './notification/entities/notification-channe
 import { BullBoardModule } from '@bull-board/nestjs';
 import { ExpressAdapter } from '@bull-board/express';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
+import { RedisModule } from '@nestjs-modules/ioredis';
 
 @Module({
   imports: [
@@ -28,7 +29,18 @@ import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
       entities: [NotificationChannel],
 
       synchronize: false, // không để TypeORM tự sửa schema
+    }), 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    RedisModule.forRootAsync({
+      useFactory: () => ({
+        type: 'single',
+        options: {
+          host: process.env.DB_HOST_REDIS,
+          port: Number(process.env.DB_PORT_REDIS),
+        },
+      }),
     }),
+
     BullModule.forRoot({
       connection: {
         host: process.env.DB_HOST_REDIS,

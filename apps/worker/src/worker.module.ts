@@ -2,6 +2,7 @@ import "dotenv/config";
 import { Module } from '@nestjs/common';
 import { WorkerService } from './worker.service';
 import { BullModule } from '@nestjs/bullmq';
+import { RedisModule } from "@nestjs-modules/ioredis";
 @Module({
   imports: [BullModule.forRoot({
     connection: {
@@ -12,7 +13,18 @@ import { BullModule } from '@nestjs/bullmq';
   BullModule.registerQueue({
     name: 'webhook_queue',
   }),
-],
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+  RedisModule.forRootAsync({
+    useFactory: () => ({
+      type: 'single',
+      options: {
+        host: process.env.DB_HOST_REDIS,
+        port: Number(process.env.DB_PORT_REDIS),
+      },
+    }),
+  }),
+] 
+,
   controllers: [],
   providers: [WorkerService],
 })

@@ -1,32 +1,34 @@
-import {OnWorkerEvent } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
-import { Job } from 'bullmq';
+import { InjectQueue, OnQueueEvent, QueueEventsHost, QueueEventsListener } from '@nestjs/bullmq';
+import { Injectable, Logger } from '@nestjs/common';
+import { Queue } from 'bullmq';
 import { NotificationService } from '../notification/notification.service';
 import type { JobData } from '../shared/Job-data';
-
-export class WebhookProcessor {
+import Redis from 'ioredis';
+import { InjectRedis } from '@nestjs-modules/ioredis';
+@QueueEventsListener('webhook_queue')
+@Injectable()
+export class WebhookProcessor extends QueueEventsHost {
   private readonly logger = new Logger(WebhookProcessor.name);
-  constructor(private readonly notificationService: NotificationService) {
+  constructor(
+    private readonly notificationService: NotificationService,
+    @InjectRedis() private readonly redis: Redis,
+    @InjectQueue('webhook_queue') private readonly queue: Queue,
+  ) {
+    super();
   }
   
   /**
-   * Phương thức cốt lõi — BullMQ tự động gọi hàm này khi có job mới trong queue.
-   * Nếu hàm này throw Error → BullMQ đánh dấu job thất bại và kích hoạt retry (backoff).
-   * Nếu hàm này return bình thường → job hoàn thành thành công.
+   * Lắng nghe sự kiện thất bại từ QueueEvents (Global Event).
+   * Phải dùng @OnQueueEvent và nhận args chứa jobId.
    */
-  @OnWorkerEvent('failed')
-  async onFailed(job: Job, error: Error) {
-    const isLastAttempt = job.attemptsMade >= (job.opts.attempts ?? 1);
-
-    if (isLastAttempt) {
-      this.logger.error(
-        `[Job ${job.id}] ĐÃ THẤT BẠI HOÀN TOÀN sau ${job.attemptsMade} lần thử | Lỗi: ${error.message}`,
-      );
-
-      // Extract job data với type rõ ràng — tránh unsafe assignment
+  @OnQueueEvent('failed')
+  async onFailed(args: { jobId: string; failedReason: string; prev?: string }) {
+    const job = await this.queue.getJob(args.jobId);
+    if (!job) return;
+   // Extract job data với type rõ ràng — tránh unsafe assignment
       const { url, params } = job.data as JobData;
 
-      // Gọi NotificationService — tự load channel từ DB, gửi đến từng provider
+      //Gọi NotificationService — tự load channel từ DB, gửi đến từng provider
       await this.notificationService.sendAlert({
         jobId:            job.id ?? '',
         url:              url,
@@ -36,10 +38,8 @@ export class WebhookProcessor {
         callId:           params.meta.callId,
         connector_server: params.meta.call.connector_server,
       });
-    } else {
-      this.logger.warn(
-        `[Job ${job.id}] Thất bại lần ${job.attemptsMade} — sẽ thử lại sau... | Lỗi: ${error.message}`,
-      );
     }
   }
-}
+
+
+
