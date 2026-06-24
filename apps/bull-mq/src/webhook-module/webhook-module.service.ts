@@ -13,9 +13,10 @@ export class WebhookModuleService {
   async dispatchEvent(url: string, params: Record<string, unknown>) {
     const eventId=params.eventId as string || ' ';
     const eventType=params.eventType as string || ' ';
+    const callee=params.callee as string || ' ';
     const uniqueid = (params as { meta?: { call?: { uniqueid?: string } } })?.meta?.call?.uniqueid || ' ';
-    console.log("uniqueid: "+uniqueid);
-    const jobId=createHash('sha256').update(eventId+eventType+uniqueid).digest('hex');
+    console.log("callee: ",callee);
+    const jobId=createHash('sha256').update(eventId+eventType+callee+uniqueid+callee).digest('hex');
     const job = await this.webhookQueue.add(
       'sendWebhook',
       { url, params },
