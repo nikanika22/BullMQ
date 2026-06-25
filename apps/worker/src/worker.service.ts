@@ -19,6 +19,12 @@ export class WorkerService extends WorkerHost {
   async process(job: Job<JobData>, token?: string): Promise<unknown> {
     const callId = job.data.params?.meta?.callId;
     const { url, params } = job.data;
+    //ở đây check xem url đó đã bị khóa do số lần đẩy vượt mức chưa.
+    const isCircuitBreakerOpen = await this.redis.get(`webhook_circuit_breaker:${url}`);
+    if (isCircuitBreakerOpen === 'OPEN') {
+      this.logger.warn(`[Job ${job.id}] URL ${url} đang bị ngắt (Circuit Breaker OPEN). Tạm dừng gửi.`);
+      throw new UnrecoverableError(`Circuit Breaker OPEN cho URL: ${url}`);
+    }
       const stateRaw = await this.redis.get(`call_state:${callId}`);
       if (stateRaw) {
         const state = JSON.parse(stateRaw) as ICallState;
@@ -61,7 +67,12 @@ export class WorkerService extends WorkerHost {
   @OnWorkerEvent('completed')
   async onCompleted(job: Job<JobData>) {
     const callId = job.data.params?.meta?.callId;
+    const url = job.data.url;
     this.logger.log(`[Job ${job.id}] Hoàn thành!`);
+    // Xóa key đếm lỗi (nếu job thành công thì reset trạng thái)
+    if (url) {
+      await this.redis.del(`webhook_failures:${url}`);
+    }
     if (callId) {
       await this.wakeUpSleepingJobs(callId);
       await this.redis.del(`call_state:${callId}`);
@@ -85,6 +96,27 @@ export class WorkerService extends WorkerHost {
         console.log("UnrecoverableError");
         return;
       }
+    const {url}=job.data;
+    // tăng biến đếm lỗi 
+    if (url) {
+      const maxRetriesRaw:string|null=await this.redis.get(`webhook_max_retries:${url}`);
+      if(maxRetriesRaw!==null)
+        {
+        const maxRetries=Number(maxRetriesRaw);
+        // ở đây sẽ khởi tạo số lần fail, nếu chưa tồn tại thì incr sẽ là 0, còn tồn tại thì +1
+        const failures = await this.redis.incr(`webhook_failures:${url}`);
+        if(failures>=maxRetries)
+        {
+          // ở đây set nếu check đạt tới giới hạn này thì sẽ không axios nữa.
+            const cooldown= Number(process.env.WEBHOOK_COOLDOWN_PERIOD)|| 300;
+             await this.redis.set(`webhook_circuit_breaker:${url}`, 'OPEN', 'EX', cooldown);
+          this.logger.error(`[Circuit Breaker] URL ${url} thất bại ${failures}/${maxRetries} lần. NGẮT trong ${cooldown}s.`);
+        }
+        else{
+          this.logger.log(`[Job ${job.id}] Đã thất bại ${failures}/${maxRetries} lần. Vẫn đang xử lý.`);
+        }
+      }
+    }
     const callId = job.data.params?.meta?.callId;
     if (!callId) return;
 
