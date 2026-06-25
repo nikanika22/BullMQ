@@ -63,7 +63,7 @@ export class WorkerService extends WorkerHost {
     const callId = job.data.params?.meta?.callId;
     this.logger.log(`[Job ${job.id}] Hoàn thành!`);
     if (callId) {
-      await this.wakeUpSleepingJobs(job, callId);
+      await this.wakeUpSleepingJobs(callId);
       await this.redis.del(`call_state:${callId}`);
     }
   }
@@ -90,9 +90,7 @@ export class WorkerService extends WorkerHost {
 
     const maxAttempts = job.opts.attempts || 1;
     const isCompletelyDead = job.attemptsMade >= maxAttempts;
-
     if (isCompletelyDead ) {
-      // 1. Cắm cờ báo tử vĩnh viễn cho cả nhóm (TTL 1 giờ)
       const deadState: ICallState = {
         state: 'dead',
         attemptsMade: job.attemptsMade,
@@ -102,7 +100,7 @@ export class WorkerService extends WorkerHost {
       };
       await this.redis.set(`call_state:${callId}`, JSON.stringify(deadState), 'EX', Number(process.env.TTL));
       this.logger.error(`[Job ${job.id}] Đã chết vĩnh viễn cho nhóm ${callId}.`);
-      await this.wakeUpSleepingJobs(job, callId);
+      await this.wakeUpSleepingJobs(callId);
     } else {
       // 2. Cập nhật cờ đang retry cùng meta-data mới nhất
       let backoffDelay=0;
@@ -131,7 +129,7 @@ export class WorkerService extends WorkerHost {
   }
 
   // Hàm helper dùng để đánh thức các job đang ngủ trong nhóm
-  private async wakeUpSleepingJobs(job: Job<JobData>, callId: string) {
+  private async wakeUpSleepingJobs(callId: string) {
     const sleepingKey = `call_sleeping:${callId}`;
     const sleepingIds = await this.redis.smembers(sleepingKey);
     if (!sleepingIds.length) return;
