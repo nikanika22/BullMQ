@@ -5,6 +5,7 @@ import { WebhookModuleController } from './webhook-module.controller';
 import { WebhookProcessor } from './webhook.processor';
 import { WebhookQueueEvents } from './webhook.events';
 import { NotificationModule } from '../notification/notification.module';
+import { GroupsModule } from '../groups/groups.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { NotificationModule } from '../notification/notification.module';
       // prefix: 'my_app',  ở đây có thể điền my_app đại diện cho folder lưu trong database.
     }),
     NotificationModule,
+    GroupsModule,
   ],
   controllers: [WebhookModuleController],
   //Thêm WebhookProcessor vào providers để NestJS khởi tạo Worker chạy nền.

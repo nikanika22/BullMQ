@@ -11,6 +11,8 @@ import { BullBoardModule } from '@bull-board/nestjs';
 import { ExpressAdapter } from '@bull-board/express';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { RedisModule } from '@nestjs-modules/ioredis';
+import { GroupsModule } from './groups/groups.module';
+import { Group } from './shared/database/group.entity';
 
 @Module({
   imports: [
@@ -26,7 +28,7 @@ import { RedisModule } from '@nestjs-modules/ioredis';
       username: process.env.DB_USER,
       password: process.env.DB_PASS,
       database: process.env.DB_NAME,
-      entities: [NotificationChannel],
+      entities: [NotificationChannel, Group],
 
       synchronize: false, // không để TypeORM tự sửa schema
     }), 
@@ -60,6 +62,7 @@ import { RedisModule } from '@nestjs-modules/ioredis';
         adapter: BullMQAdapter, // Import từ @bull-board/api/bullMQAdapter
       },
     ),
+    GroupsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
