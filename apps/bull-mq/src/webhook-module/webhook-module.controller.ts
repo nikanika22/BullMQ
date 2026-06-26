@@ -20,4 +20,10 @@ export class WebhookModuleController {
     this.logger.log(`Nhận event → dispatch tới queue | url: ${dto.url}`);
     return this.webhookModuleService.dispatchEvent(dto.url, dto.params);
   }
+  @HttpCode(HttpStatus.OK)
+  @Post('retryAll')
+  async retryAll ()
+  {
+      return await this.webhookModuleService.retryAll();
+  }
 }

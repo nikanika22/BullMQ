@@ -6,6 +6,7 @@ import { InjectRedis } from '@nestjs-modules/ioredis';
 import Redis from 'ioredis';
 import type { JobData } from 'apps/bull-mq/src/shared/Job-data';
 import { ICallState } from 'apps/bull-mq/src/shared/CallState-data';
+import { WebhookPayload } from 'apps/bull-mq/src/shared/WebhookPayload-data';
 
 @Injectable()
 @Processor('webhook_queue', { concurrency: Number(process.env.CONCURRENCY) })
@@ -61,7 +62,14 @@ export class WorkerService extends WorkerHost {
     }
 
     // C. CHẠY LOGIC THỰC TẾ (NẾU KHÔNG CÓ CỜ ĐỘC / CỜ NGỦ)
-    const { data } = await axios.post<unknown>(url, params);
+    const payload = JSON.parse(JSON.stringify(params)) as WebhookPayload;
+    // 2. Xóa thuộc tính pbxSuffix ở tầng ngoài cùng
+    delete payload.pbxSuffix;
+    if (payload.meta?.call) {
+      delete payload.meta.call.connector_server;
+      delete payload.meta.call.groupid;
+    }
+    const { data } = await axios.post<unknown>(url, payload);
     return data;
   }
   @OnWorkerEvent('completed')
