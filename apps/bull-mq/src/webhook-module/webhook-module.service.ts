@@ -5,6 +5,7 @@ import { createHash } from 'crypto';
 import { GroupsService } from '../groups/groups.service';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import Redis from 'ioredis';
+import { WebhookPayload } from '../shared/WebhookPayload-data';
 @Injectable()
 export class WebhookModuleService {
   private readonly logger = new Logger(WebhookModuleService.name);
@@ -16,11 +17,11 @@ export class WebhookModuleService {
   
   ) {}
 
-  async dispatchEvent(url: string, params: Record<string, unknown>) {
-    const eventId=params.eventId as string || ' ';
-    const eventType=params.eventType as string || ' ';
-    const callee=params.callee as string || ' ';
-    const uniqueid = (params as { meta?: { call?: { uniqueid?: string } } })?.meta?.call?.uniqueid || ' ';
+  async dispatchEvent(url: string, params: WebhookPayload) {
+    const eventId=params.eventId;
+    const eventType=params.eventType;
+    const callee=params.callee;
+    const uniqueid =params.meta?.call?.uniqueid;
     // đoạn này ở đây sẽ check xem đã tồn tại url đó chưa, nếu có thì không đọc db lại làm gì
     const cacheKey=`webhook_max_retries:${url}`;
     const cachedData=await this.redis.get(cacheKey);

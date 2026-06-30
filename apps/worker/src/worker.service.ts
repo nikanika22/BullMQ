@@ -7,13 +7,18 @@ import Redis from 'ioredis';
 import type { JobData } from 'apps/bull-mq/src/shared/Job-data';
 import { ICallState } from 'apps/bull-mq/src/shared/CallState-data';
 import { WebhookPayload } from 'apps/bull-mq/src/shared/WebhookPayload-data';
+import { IDataState, LiveService } from 'apps/bull-mq/src/live/live.service';
+import { LiveGateway } from 'apps/bull-mq/src/live/live.gateway';
 
 @Injectable()
 @Processor('webhook_queue', { concurrency: Number(process.env.CONCURRENCY) })
 export class WorkerService extends WorkerHost {
   private readonly logger = new Logger(WorkerService.name);
 
-  constructor(@InjectRedis() private readonly redis: Redis) {
+  constructor(@InjectRedis() private readonly redis: Redis,
+    private readonly liveService:LiveService,
+    private readonly liveGateway:LiveGateway,
+  ) {
     super();
   }
 
@@ -69,6 +74,9 @@ export class WorkerService extends WorkerHost {
       delete payload.meta.call.connector_server;
       delete payload.meta.call.groupid;
     }
+
+    if(job.attemptsMade===0)
+    await this.socketio_callState(payload);
     const { data } = await axios.post<unknown>(url, payload);
     return data;
   }
@@ -189,4 +197,22 @@ export class WorkerService extends WorkerHost {
     }
     await this.redis.del(sleepingKey);
   }
+
+  private async socketio_callState(params: WebhookPayload) {
+  const eventId = params.eventId;
+  if (!eventId) return;
+  const stateData: IDataState = {
+    callKey:    eventId,
+    eventType:  params.eventType,
+    caller:     params.caller,
+    callee:     params.callee,
+    did:        params.meta.call?.did,
+    startedAt:  params.meta.call?.starttime,
+    updatedAt:  new Date().toISOString(),
+  };
+
+  await this.liveService.updateCallState(stateData);        
+  await this.liveGateway.broadcastCallUpdate(eventId, stateData); 
+}
+
 }

@@ -13,6 +13,7 @@ import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { RedisModule } from '@nestjs-modules/ioredis';
 import { GroupsModule } from './groups/groups.module';
 import { Group } from './shared/database/group.entity';
+import { LiveModule } from './live/live.module';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { Group } from './shared/database/group.entity';
       },
     ),
     GroupsModule,
+    LiveModule,
   ],
   controllers: [AppController],
   providers: [AppService],

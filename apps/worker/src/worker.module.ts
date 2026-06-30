@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { WorkerService } from './worker.service';
 import { BullModule } from '@nestjs/bullmq';
 import { RedisModule } from "@nestjs-modules/ioredis";
+import { LiveModule } from "apps/bull-mq/src/live/live.module";
 @Module({
   imports: [BullModule.forRoot({
     connection: {
@@ -23,6 +24,7 @@ import { RedisModule } from "@nestjs-modules/ioredis";
       },
     }),
   }),
+  LiveModule
 ] 
 ,
   controllers: [],
