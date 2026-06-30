@@ -1,10 +1,11 @@
 import { Controller, Post, Body, Logger, HttpCode, HttpStatus } from '@nestjs/common';
 import { WebhookModuleService } from './webhook-module.service';
+import { WebhookPayload } from '../shared/WebhookPayload-data';
 
 // DTO — mô tả payload nhận từ client khi gọi API dispatch
 class DispatchEventDto {
   url: string;                          // URL server khách hàng cần gọi
-  params: Record<string, unknown>;      // Body data sẽ gửi kèm
+  params: WebhookPayload;      // Body data sẽ gửi kèm
 }
 
 @Controller('webhook')

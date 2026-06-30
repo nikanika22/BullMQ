@@ -5,11 +5,12 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { LiveService, IDataState } from './live.service';
+import { LiveService} from './live.service';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 
 import { Socket, Server } from 'socket.io';
 import Redis from 'ioredis';
+import { IDataState } from './types/type';
 @WebSocketGateway({ cors: { origin: '*' } })
 export class LiveGateway
   implements OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit

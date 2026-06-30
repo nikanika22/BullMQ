@@ -2,16 +2,7 @@ import { InjectRedis } from '@nestjs-modules/ioredis';
 import { Injectable, Logger } from '@nestjs/common';
 import { createHash } from 'crypto';
 import Redis from 'ioredis';
-
-export interface IDataState{
-    callKey: string;
-    eventType: string;
-    caller: string;
-    callee: string;
-    did?: string;
-    startedAt?: string;
-    updatedAt?: string;
-}
+import { CALL_END_EVENTS, IDataState } from './types/type';
 @Injectable()
 export class LiveService {
     private readonly logger=new Logger(LiveService.name);
@@ -32,9 +23,22 @@ export class LiveService {
       if (!callKey) return;
       const redisKey = `live:calls:${callKey}`;
       //check xem có thuộc 2 event cần xóa không, nếu có thì xóa đi
+
+
       // Ghi đè toàn bộ object mỗi event — TTL tự dọn sau 1h
+      
+      const pipeline = this.redis.pipeline();
+      if(CALL_END_EVENTS.includes(params.eventType))
+      {
+        //xoa key call đang hoạt động
+         pipeline.del(redisKey);
+        //xóa luôn lưu hHSET 
+        pipeline.srem('live:calls:index', callKey);
+        await pipeline.exec();
+        return;
+      }
       const stateData :IDataState = {
-        callKey,
+        callKey: params.callKey,
         eventType: params.eventType,
         caller:    params.caller,
         callee:    params.callee,
@@ -42,14 +46,13 @@ export class LiveService {
         startedAt: params.startedAt,
         updatedAt: params.updatedAt,
       };
-
-      const pipeline = this.redis.pipeline();
       pipeline.set(redisKey, JSON.stringify(stateData)); 
-      pipeline.expire(redisKey, Number(process.env.TTL));                  
+      pipeline.expire(redisKey, Number(process.env.TTL));              
       pipeline.sadd('live:calls:index', callKey);        
       await pipeline.exec();
 
     } catch (error) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       this.logger.error(`updateCallState error: ${error.message}`);
     }
   }
