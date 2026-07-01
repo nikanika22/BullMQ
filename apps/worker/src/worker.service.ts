@@ -7,7 +7,8 @@ import Redis from 'ioredis';
 import type { JobData } from 'apps/bull-mq/src/shared/Job-data';
 import { ICallState } from 'apps/bull-mq/src/shared/CallState-data';
 import { WebhookPayload } from 'apps/bull-mq/src/shared/WebhookPayload-data';
-import { IDataState, LiveService } from 'apps/bull-mq/src/live/live.service';
+import { LiveService } from 'apps/bull-mq/src/live/live.service';
+import { IDataState } from 'apps/bull-mq/src/live/types/type';
 import { LiveGateway } from 'apps/bull-mq/src/live/live.gateway';
 
 @Injectable()

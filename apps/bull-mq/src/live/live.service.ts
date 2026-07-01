@@ -3,12 +3,17 @@ import { Injectable, Logger } from '@nestjs/common';
 import { createHash } from 'crypto';
 import Redis from 'ioredis';
 import { CALL_END_EVENTS, IDataState } from './types/type';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 @Injectable()
 export class LiveService {
     private readonly logger=new Logger(LiveService.name);
     constructor(
         @InjectRedis()
-        private readonly redis:Redis
+        private readonly redis:Redis,
+        @InjectQueue('webhook_queue')
+        private readonly webhookQueue: Queue
+
     ){}
    private buildCallKey(params: IDataState): string | null {
     const callId    = params.callKey;
@@ -69,5 +74,28 @@ export class LiveService {
       .filter(([err, data]) => !err && data !== null)
       // 3. Ép kiểu kết quả JSON.parse thành DataState
       .map(([, data]) => JSON.parse(data as string) as IDataState);    
+  }
+  async getCallEvent(callId: string)
+  {
+     const allJobs= await this.webhookQueue.getJobs(['waiting', 'active', 'completed', 'failed', 'delayed']);
+     const callJobs = allJobs.filter(
+      job => {
+        // check xem có tồn tại hay không để filter lọc ra.
+        return job.data?.params?.eventId === callId});
+     callJobs.sort((a, b) => a.timestamp - b.timestamp);
+      const results = await Promise.all(callJobs.map(async (job) => {
+      const state = await job.getState();
+      return {
+        jobId: job.id,
+        state: state, 
+        timestamp: job.timestamp,
+        finishedOn: job.finishedOn,
+        failedReason: job.failedReason,
+        attemptsMade: job.attemptsMade,
+        payload: job.data.params , // Data gốc
+        returnValue: job.returnvalue // Kết quả trả về từ axios (nếu thành công)
+      };
+    }));
+    return results;
   }
 }
